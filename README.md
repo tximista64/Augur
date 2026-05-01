@@ -1,6 +1,6 @@
 # Cyberwatch — Automated Daily Intelligence from RSS Feeds
 
-![image](https://github.com/tximista64/cybersecurity_rss_feed/blob/main/analyst.png)
+![image](assets/analyst.png)
 
 ## What is this?
 
