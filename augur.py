@@ -18,6 +18,7 @@ import os
 import re
 import sys
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -46,7 +47,7 @@ MAX_ARTICLES   = 100
 MAX_PER_FEED   = 3
 MAX_AGE_HOURS  = 48
 MAX_DESC_CHARS = 500
-MODEL          = "claude-opus-4-7"
+MODEL          = "claude-sonnet-4-6"
 
 PROFILES = {
     "pentest":  ["Offensive", "Bug Bounty", "CTF", "Persons of Interest"],
@@ -142,72 +143,78 @@ def is_recent(entry, max_age_hours: int) -> bool:
         if t:
             pub = datetime(*t[:6], tzinfo=timezone.utc)
             return datetime.now(timezone.utc) - pub < timedelta(hours=max_age_hours)
-    return True
+    return False
+
+
+def _fetch_one(url: str, max_age_hours: int) -> list[dict]:
+    articles = []
+    try:
+        feed = feedparser.parse(url, request_headers={"User-Agent": "augur/2.0"})
+        source = feed.feed.get("title", url)
+        count = 0
+        for entry in feed.entries:
+            if count >= MAX_PER_FEED:
+                break
+            if not is_recent(entry, max_age_hours):
+                continue
+            title = entry.get("title", "—")
+            desc = re.sub(r"<[^>]+>", "", entry.get("summary", entry.get("description", "")))
+            articles.append({
+                "source": source,
+                "title": title,
+                "desc": desc[:MAX_DESC_CHARS],
+                "link": entry.get("link", ""),
+            })
+            count += 1
+    except Exception as e:
+        print(f"  [!] {url}: {e}", file=sys.stderr)
+    return articles
 
 
 def fetch_articles(feed_urls: list[str], max_age_hours: int) -> list[dict]:
-    articles = []
-    for url in feed_urls:
-        try:
-            feed = feedparser.parse(url, request_headers={"User-Agent": "augur/2.0"})
-            source = feed.feed.get("title", url)
-            count = 0
-            for entry in feed.entries:
-                if count >= MAX_PER_FEED:
-                    break
-                if not is_recent(entry, max_age_hours):
-                    continue
-                title = entry.get("title", "—")
-                desc = re.sub(r"<[^>]+>", "", entry.get("summary", entry.get("description", "")))
-                articles.append({
-                    "source": source,
-                    "title": title,
-                    "desc": desc[:MAX_DESC_CHARS],
-                    "link": entry.get("link", ""),
-                })
-                count += 1
-        except Exception as e:
-            print(f"  [!] {url}: {e}", file=sys.stderr)
-    return articles[:MAX_ARTICLES]
+    all_articles = []
+    with ThreadPoolExecutor(max_workers=12) as executor:
+        futures = {executor.submit(_fetch_one, url, max_age_hours): url for url in feed_urls}
+        for future in as_completed(futures):
+            all_articles.extend(future.result())
+    return all_articles[:MAX_ARTICLES]
 
 
 # ─── CLAUDE ANALYSIS ───────────────────────────────────────────────────────────
 
-_PROMPT = """You are a senior CTI analyst. Analyze the following cybersecurity articles and return a structured JSON object for a PowerPoint threat intelligence briefing.
-
-Date: {date}
+_SYSTEM = """You are a senior CTI analyst. Analyze cybersecurity articles and return a structured JSON object for a PowerPoint threat intelligence briefing.
 
 RETURN ONLY VALID JSON — no markdown fences, no commentary.
 
-{{
+{
   "exec_summary": [
     "<one-sentence top threat #1 — most impactful finding>",
     "<one-sentence top threat #2>",
     "<one-sentence top threat #3>"
   ],
   "cve_vulns": [
-    {{
+    {
       "title": "<concise title>",
       "severity": "🔴|🟠|🟡|🟢",
       "summary": "<2 sentences, SOC/DFIR-oriented, factual>",
       "source": "<feed name>",
       "link": "<url>"
-    }}
+    }
   ],
-  "apt_actors":   [{{...same fields...}}],
-  "offensive_it": [{{...same fields...}}],
-  "ransomware":   [{{...same fields...}}],
-  "geopolitics":  [{{...same fields...}}],
+  "apt_actors":   [{...same fields...}],
+  "offensive_it": [{...same fields...}],
+  "ransomware":   [{...same fields...}],
+  "geopolitics":  [{...same fields...}],
   "iocs_claude": [
-    {{
+    {
       "type": "IP|Domain|Hash|CVE",
       "value": "<exact indicator>",
       "severity": "🔴|🟠|🟡|🟢",
       "source": "<feed name>",
       "context": "<10 words max describing threat context>"
-    }}
+    }
   ]
-}}
+}
 
 Classification rules:
 - cve_vulns    : CVEs, patches, vulnerabilities, exploits, 0days
@@ -226,10 +233,9 @@ Output rules:
 - Each section: max 5 items, sorted by criticality descending
 - exec_summary: 3 most impactful cross-section findings
 - iocs_claude: only IOCs explicitly mentioned in article text (not inferred)
-- Empty section → return []
+- Empty section → return []"""
 
-ARTICLES:
-{articles}"""
+_USER_TMPL = "Date: {date}\n\nARTICLES:\n{articles}"
 
 
 def analyze(articles: list[dict], date_str: str) -> dict:
@@ -248,9 +254,14 @@ def analyze(articles: list[dict], date_str: str) -> dict:
     response = client.messages.create(
         model=MODEL,
         max_tokens=4096,
+        system=[{
+            "type": "text",
+            "text": _SYSTEM,
+            "cache_control": {"type": "ephemeral"},
+        }],
         messages=[{
             "role": "user",
-            "content": _PROMPT.format(date=date_str, articles=articles_txt),
+            "content": _USER_TMPL.format(date=date_str, articles=articles_txt),
         }],
     )
 
@@ -259,7 +270,12 @@ def analyze(articles: list[dict], date_str: str) -> dict:
     if m:
         raw = m.group(1)
 
-    return json.loads(raw)
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        print(f"[!] Claude returned invalid JSON: {e}", file=sys.stderr)
+        print(f"    Response (first 500 chars): {raw[:500]}", file=sys.stderr)
+        sys.exit(1)
 
 
 # ─── PPTX PRIMITIVES ───────────────────────────────────────────────────────────
