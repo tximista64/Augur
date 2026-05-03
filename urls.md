@@ -46,8 +46,6 @@
 - [CCN‑CERT España](https://www.ccn-cert.cni.es/component/obrss/rss-ultimas-vulnerabilidades.feed)
 - [CERT‑IL](https://www.gov.il/he/api/PublicationApi/rss/4bcc13f5‑fed6‑4b8c‑b8ee‑7bf4a6bc81c8)
 - [Nextron Germany](https://www.nextron-systems.com/blog/feed)
-- [abuse.ch Blog](https://abuse.ch/blog/feed/)
-- [MalwareBazaar — Nouveaux samples](https://bazaar.abuse.ch/export/rss/recent/)
 - [CVE List V5 — GitHub](https://github.com/CVEProject/cvelistV5/commits/main.atom)
 
 # Offensive
@@ -138,14 +136,7 @@
 - [Intelligence Online](https://feeds.feedburner.com/IntelligenceOnline-fr)
 - [Zataz News](https://www.zataz.com/rss/zataz-news.rss)
 - [Caspian Report YouTube](https://www.youtube.com/feeds/videos.xml?channel_id=UCwnKziETDbHJtx78nIkfYug)
-- [Silicon Carne — Carlos Diaz](https://siliconcarne.substack.com/feed)
 - [War on the Rocks](https://warontherocks.com/feed/)
 - [The Diplomat](https://thediplomat.com/feed/)
-- [Foreign Affairs](https://www.foreignaffairs.com/rss.xml)
 - [Lawfare](https://www.lawfaremedia.org/feed)
-- [Diploweb](https://www.diploweb.com/spip.php?page=backend)
-- [Le Grand Continent](https://legrandcontinent.eu/fr/feed/)
-- [IFRI Publications](https://www.ifri.org/fr/rss.xml)
-- [Cyber Scoop](https://cyberscoop.com/feed/)
-- [Recorded Future Blog](https://www.recordedfuture.com/feed)
 - [Crisis Group](https://www.crisisgroup.org/rss.xml)

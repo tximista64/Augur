@@ -1,10 +1,10 @@
-# Cyberwatch — Automated Daily Intelligence from RSS Feeds
+# Augur — AI-Powered Threat Intelligence Briefing
 
 ![image](assets/analyst.png)
 
 ## What is this?
 
-A curated list of cybersecurity RSS/Atom feeds organized by theme, paired with `cyber_watch.py` — a script that pulls today's articles and pipes them to [Claude Code](https://claude.ai/code) to generate a structured daily threat intelligence digest, ready for Obsidian.
+A curated collection of cybersecurity RSS/Atom feeds paired with `augur.py` — an AI agent that fetches today's articles, analyzes them via the Claude API, extracts IOCs, and generates a ready-to-present **PowerPoint briefing** in one command.
 
 Feeds are grouped into sections:
 
@@ -23,27 +23,48 @@ Most feeds are in **English**, but you'll also find many in **French**, and some
 
 ---
 
+## Output
+
+A dark-themed PowerPoint briefing (`briefing_YYYYMMDD.pptx`) with:
+
+| Slide | Content |
+|---|---|
+| 1 | Title — date & stats |
+| 2 | Executive Summary — top 3 threats |
+| 3 | CVE & Vulnerabilities |
+| 4 | APT & Threat Actors |
+| 5 | Offensive IT / Red Team |
+| 6 | Ransomware & Cybercrime |
+| 7 | Geopolitics & Intel |
+| 8 | IOCs du jour — regex + Claude extraction |
+| 9 | Stats & Sources |
+
+Each item is scored: 🔴 Critical / 🟠 High / 🟡 Medium / 🟢 Info
+
+---
+
 ## Quick start
 
 **Dependencies:**
 ```bash
-pip install feedparser
-# Claude Code required: https://claude.ai/code
+pip install feedparser anthropic python-pptx
 ```
 
-**Run with local feed list:**
+**API key** — add to `~/.zshrc`:
 ```bash
-python cyber_watch.py --feeds urls.md | claude
+export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-**Run directly from this repo (always up to date):**
+**Run:**
 ```bash
-python cyber_watch.py --feeds-url https://raw.githubusercontent.com/tximista64/cybersecurity_rss_feed/main/urls.md | claude
-```
+# Local feed list
+python augur.py --feeds urls.md
 
-**Export to markdown:**
-```bash
-python cyber_watch.py --feeds urls.md --scored | claude > veille_$(date +%Y%m%d).md
+# Always up-to-date from this repo
+python augur.py --feeds-url https://raw.githubusercontent.com/tximista64/Augur/main/urls.md
+
+# Custom output
+python augur.py --feeds urls.md --output briefing.pptx
 ```
 
 ---
@@ -54,20 +75,15 @@ python cyber_watch.py --feeds urls.md --scored | claude > veille_$(date +%Y%m%d)
 |---|---|---|
 | `--feeds FILE` | Local feed list (mutually exclusive with `--feeds-url`) | — |
 | `--feeds-url URL` | Remote feed list URL | — |
-| `--scored` | Group by theme + assign criticality level | off |
 | `--max-age H` | Only fetch articles newer than H hours | 48 |
 | `--profile` | `pentest` / `blueteam` / `geopo` / `all` | `all` |
+| `--output FILE` | Output `.pptx` path | `briefing_YYYYMMDD.pptx` |
 
-**Profile filter examples:**
+**Profile examples:**
 ```bash
-# SOC / blue team focus
-python cyber_watch.py --feeds urls.md --profile blueteam --scored | claude
-
-# Red team & bug bounty
-python cyber_watch.py --feeds urls.md --profile pentest | claude
-
-# Geopolitics & strategic intel
-python cyber_watch.py --feeds urls.md --profile geopo | claude
+python augur.py --feeds urls.md --profile blueteam
+python augur.py --feeds urls.md --profile pentest
+python augur.py --feeds urls.md --profile geopo
 ```
 
 ---

@@ -10,7 +10,7 @@ dist/
 build/
 
 # Output files
-veille_*.md
+briefing_*.pptx
 
 # OS
 .DS_Store
@@ -20,3 +20,4 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
